@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>D-DAY 카드</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{ --bg:#f2f1ee; --text:#1a1a1a; --sub:#777; --line:#00000014; --chip:#0000000d; --pill:#1a1a1a; --pillText:#fff; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#121212; --text:#f0f0f0; --sub:#999; --line:#ffffff1a; --chip:#ffffff14; } }
+  *{box-sizing:border-box;}
+  html,body{margin:0;min-height:100%;}
+  body{ font-family:-apple-system,'Pretendard',sans-serif; background:var(--bg); color:var(--text); }
+  header{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px; max-width:1100px; margin:0 auto; }
+  header h1{ font-size:16px; margin:0; }
+  #syncTag{ font-size:11px; color:var(--sub); }
+  .pillBtn{ background:var(--pill); color:var(--pillText); border:none; padding:9px 16px; border-radius:20px; font-size:13px; cursor:pointer; }
+  #headerBtns{ display:flex; gap:8px; }
+  #grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:18px; padding:8px 20px 40px; max-width:1100px; margin:0 auto; }
+  .card{ position:relative; aspect-ratio:3/2; border-radius:18px; overflow:hidden; background:#333; box-shadow:0 6px 20px rgba(0,0,0,.12); cursor:pointer; }
+  .bgwrap{ position:absolute; inset:0; overflow:hidden; }
+  .bgwrap img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .overlay{ position:absolute; inset:0; pointer-events:none; }
+  .content{ position:absolute; left:0; right:0; bottom:0; padding:16px 18px; }
+  .ctitle{ opacity:.85; margin-bottom:2px; }
+  .cdday{ font-weight:800; letter-spacing:-0.5px; }
+  .cdate{ opacity:.75; margin-top:2px; }
+  .ctools{ position:absolute; top:8px; right:8px; display:flex; gap:6px; z-index:2; }
+  .ctools button{ background:#00000055; color:#fff; border:none; width:26px; height:26px; border-radius:8px; font-size:12px; cursor:pointer; }
+  .empty{ color:var(--sub); font-size:13px; text-align:center; padding:60px 20px; }
+
+  #loginScreen{ min-height:80vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; padding:20px; }
+  #loginScreen p{ color:var(--sub); font-size:13px; max-width:280px; }
+
+  #modal{ position:fixed; inset:0; background:#00000066; display:none; align-items:flex-start; justify-content:center; z-index:20; overflow-y:auto; padding:30px 14px; }
+  #modalBox{ background:var(--bg); color:var(--text); border-radius:18px; width:100%; max-width:380px; padding:20px; }
+  #modalBox h2{ font-size:15px; margin:0 0 14px; }
+  .field{ margin-bottom:12px; }
+  .field label{ display:block; font-size:12px; color:var(--sub); margin-bottom:4px; }
+  .field input[type=text], .field input[type=date]{ width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--line); background:transparent; color:var(--text); font-size:13px; }
+  .row2{ display:flex; gap:10px; }
+  .row2 > div{ flex:1; }
+  .field input[type=range]{ width:100%; }
+  .segBtns{ display:flex; gap:6px; }
+  .segBtns button{ flex:1; padding:8px; border-radius:9px; border:1px solid var(--line); background:transparent; color:var(--text); font-size:12px; cursor:pointer; }
+  .segBtns button.on{ background:var(--pill); color:var(--pillText); border-color:var(--pill); }
+  #previewWrap{ margin:14px 0; }
+  #modalBtns{ display:flex; gap:8px; margin-top:16px; }
+  #modalBtns button{ flex:1; padding:10px; border:none; border-radius:10px; font-size:13px; cursor:pointer; }
+  .btnCancel{ background:var(--chip); color:var(--text); }
+  .btnSave{ background:var(--pill); color:var(--pillText); }
+  .btnDelete{ background:#e0574f; color:#fff; }
+  #fileInput{ display:none; }
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; z-index:50; opacity:0; pointer-events:none; transition:opacity .2s; }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h1 style="font-size:18px;margin:0">D-DAY 카드</h1>
+  <p>구글 계정으로 로그인하면 구글 드라이브(내 계정 전용 공간)에 카드가 저장됩니다.</p>
+  <button class="pillBtn" onclick="login()">Google로 로그인</button>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <div>
+      <h1>D-DAY 카드</h1>
+      <div id="syncTag">연결 중...</div>
+    </div>
+    <div id="headerBtns">
+      <button class="pillBtn" onclick="openModal()">＋ 카드 추가</button>
+      <button class="pillBtn" style="background:var(--chip);color:var(--text)" onclick="logout()">로그아웃</button>
+    </div>
+  </header>
+  <div id="grid"></div>
+</div>
+
+<div id="modal">
+  <div id="modalBox">
+    <h2 id="modalTitle">카드 추가</h2>
+    <div id="previewWrap"><div id="previewCard" class="card"></div></div>
+
+    <div class="field"><label>제목</label><input id="fTitle" type="text" placeholder="예: 우리의 기념일"></div>
+    <div class="field"><label>유형</label>
+      <div class="segBtns"><button id="typeCountdown" onclick="setType('countdown')">디데이(D-)</button><button id="typeCouple" onclick="setType('couple')">커플(D+1부터)</button></div>
+    </div>
+    <div class="field"><label id="dateLabel">날짜</label><input id="fDate" type="date"></div>
+
+    <div class="field"><label>배경 이미지</label>
+      <button style="width:100%;padding:9px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer" onclick="document.getElementById('fileInput').click()">이미지 선택</button>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+    <div class="row2">
+      <div class="field"><label>오버레이 색상</label>
+        <div class="segBtns"><button id="ovBlack" onclick="setOverlay('black')">검정</button><button id="ovWhite" onclick="setOverlay('white')">흰색</button></div>
+      </div>
+      <div class="field"><label>오버레이 농도 (<span id="opVal">25</span>%)</label><input id="fOpacity" type="range" min="0" max="100" step="25" value="25" oninput="document.getElementById('opVal').textContent=this.value; updatePreview()"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>글씨 색상</label>
+        <div class="segBtns"><button id="txBlack" onclick="setTextColor('black')">검정</button><button id="txWhite" onclick="setTextColor('white')">흰색</button></div>
+      </div>
+      <div class="field"><label>글씨 크기</label>
+        <div class="segBtns"><button id="fsSmall" onclick="setFontSize('small')">작게</button><button id="fsMedium" onclick="setFontSize('medium')">중간</button><button id="fsLarge" onclick="setFontSize('large')">크게</button></div>
+      </div>
+    </div>
+
+    <div id="modalBtns">
+      <button class="btnCancel" onclick="closeModal()">취소</button>
+      <button class="btnDelete" id="delBtn" onclick="deleteCard()" style="display:none">삭제</button>
+      <button class="btnSave" onclick="saveCard()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLIENT_ID='925632276208-ljddj4l9fmc3lao59vc8cut1b4hbmhp0.apps.googleusercontent.com';
+const DRIVE_FILE_NAME='dday_cards.json';
+const FONT_SIZES={ small:{title:11,dday:22,date:10}, medium:{title:13,dday:30,date:12}, large:{title:15,dday:40,date:14} };
+
+let accessToken=null, driveFileId=null, tokenClient=null;
+let cards=[];
+let editingId=null, pendingBgData=null;
+let _type='countdown', _ov='black', _tx='white', _fs='medium';
+
+window.onload=()=>{
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/drive.appdata',
+    callback: async (resp)=>{
+      if(resp.error){ alert('로그인 실패: '+resp.error); return; }
+      accessToken=resp.access_token;
+      await onLoginSuccess();
+    }
+  });
+};
+function login(){ tokenClient.requestAccessToken(); }
+function logout(){
+  if(accessToken){ google.accounts.oauth2.revoke(accessToken, ()=>{}); }
+  accessToken=null; driveFileId=null; cards=[];
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+async function driveFetch(url, opts){
+  opts=opts||{};
+  opts.headers=Object.assign({Authorization:'Bearer '+accessToken}, opts.headers||{});
+  const res=await fetch(url, opts);
+  if(!res.ok){ const t=await res.text(); throw new Error('Drive 오류 '+res.status+': '+t); }
+  return res;
+}
+async function findOrCreateFile(){
+  const q=encodeURIComponent(`name='${DRIVE_FILE_NAME}'`);
+  const listRes=await driveFetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name)&q=${q}`);
+  const data=await listRes.json();
+  if(data.files && data.files.length>0){ driveFileId=data.files[0].id; return; }
+  const boundary='dday_boundary_'+Date.now();
+  const metadata=JSON.stringify({name:DRIVE_FILE_NAME, parents:['appDataFolder']});
+  const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({cards:[]})}\r\n--${boundary}--`;
+  const res=await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST', headers:{'Content-Type':`multipart/related; boundary=${boundary}`}, body
+  });
+  const created=await res.json();
+  driveFileId=created.id;
+}
+async function loadCardsFromDrive(){
+  const res=await driveFetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+  const json=await res.json().catch(()=>({cards:[]}));
+  cards=json.cards||[];
+}
+async function saveCardsToDrive(){
+  await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,{
+    method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cards})
+  });
+}
+async function onLoginSuccess(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('syncTag').textContent='🔄 연결 중...';
+  try{
+    await findOrCreateFile();
+    await loadCardsFromDrive();
+    document.getElementById('syncTag').textContent='☁️ 구글 드라이브에 저장됨';
+    renderGrid();
+  }catch(err){ console.error(err); document.getElementById('syncTag').textContent='⚠️ 연결 실패'; alert(err.message); }
+}
+
+function calcDday(dateStr,type){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const target=new Date(dateStr+'T00:00:00'); target.setHours(0,0,0,0);
+  const diff=Math.round((target-today)/86400000);
+  if(type==='couple'){ if(diff>0) return 'D-'+diff; return 'D+'+((-diff)+1); }
+  if(diff===0) return 'D-DAY';
+  return diff>0 ? 'D-'+diff : 'D+'+(-diff);
+}
+function buildCardEl(c, editable){
+  const el=document.createElement('div'); el.className='card';
+  const bg=document.createElement('div'); bg.className='bgwrap';
+  if(c.bgUrl){ const img=document.createElement('img'); img.src=c.bgUrl; bg.appendChild(img); }
+  else{ bg.style.background='linear-gradient(135deg,#555,#222)'; }
+  el.appendChild(bg);
+  const ov=document.createElement('div'); ov.className='overlay';
+  ov.style.background=(c.ovColor==='white'?'#fff':'#000');
+  ov.style.opacity=(c.ovOpacity!=null?c.ovOpacity:25)/100;
+  el.appendChild(ov);
+  const content=document.createElement('div'); content.className='content';
+  content.style.color=c.textColor==='white'?'#fff':'#111';
+  const fs=FONT_SIZES[c.fontSize||'medium'];
+  const ct=document.createElement('div'); ct.className='ctitle'; ct.style.fontSize=fs.title+'px'; ct.textContent=c.title||'제목 없음';
+  const cd=document.createElement('div'); cd.className='cdday'; cd.style.fontSize=fs.dday+'px'; cd.textContent=c.date?calcDday(c.date,c.type):'-';
+  const cdate=document.createElement('div'); cdate.className='cdate'; cdate.style.fontSize=fs.date+'px'; cdate.textContent=c.date?c.date.replace(/-/g,'.'):'';
+  content.appendChild(ct); content.appendChild(cd); content.appendChild(cdate);
+  el.appendChild(content);
+  if(editable){
+    const tools=document.createElement('div'); tools.className='ctools';
+    const editBtn=document.createElement('button'); editBtn.textContent='✎';
+    editBtn.onclick=(e)=>{ e.stopPropagation(); openModal(c); };
+    const copyBtn=document.createElement('button'); copyBtn.textContent='📋';
+    copyBtn.onclick=(e)=>{ e.stopPropagation(); copyCardHtml(c); };
+    tools.appendChild(copyBtn); tools.appendChild(editBtn);
+    el.appendChild(tools);
+    el.onclick=()=>openModal(c);
+  }
+  el._card=c;
+  return el;
+}
+function renderGrid(){
+  const grid=document.getElementById('grid'); grid.innerHTML='';
+  if(cards.length===0){ grid.innerHTML='<div class="empty">아직 카드가 없어요. 우측 상단 "카드 추가"로 시작하세요.</div>'; return; }
+  cards.forEach(c=>grid.appendChild(buildCardEl(c,true)));
+}
+function tickLive(){
+  document.querySelectorAll('#grid .card').forEach(el=>{
+    const c=el._card; if(!c||!c.date) return;
+    const dEl=el.querySelector('.cdday'); if(dEl) dEl.textContent=calcDday(c.date,c.type);
+  });
+}
+setInterval(tickLive,30000);
+
+function generateStandaloneHtml(c){
+  const fs=FONT_SIZES[c.fontSize||'medium'];
+  const bgCss=c.bgUrl?`background-image:url('${c.bgUrl}');background-size:cover;background-position:center;`:'background:linear-gradient(135deg,#555,#222);';
+  const overlayColor=c.ovColor==='white'?'255,255,255':'0,0,0';
+  const overlayOpacity=(c.ovOpacity!=null?c.ovOpacity:25)/100;
+  const textColor=c.textColor==='white'?'#fff':'#111';
+  const id='dday_'+Math.random().toString(36).slice(2,9);
+  return `<div id="${id}" style="position:relative;width:100%;max-width:420px;aspect-ratio:3/2;border-radius:18px;overflow:hidden;${bgCss}font-family:-apple-system,sans-serif;">
+  <div style="position:absolute;inset:0;background:rgba(${overlayColor},${overlayOpacity});"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:16px 18px;color:${textColor};">
+    <div style="font-size:${fs.title}px;opacity:.85;margin-bottom:2px;">${c.title||''}</div>
+    <div class="dday-val" style="font-size:${fs.dday}px;font-weight:800;letter-spacing:-0.5px;">-</div>
+    <div style="font-size:${fs.date}px;opacity:.75;margin-top:2px;">${(c.date||'').replace(/-/g,'.')}</div>
+  </div>
+</div>
+<script>(function(){
+  var el=document.getElementById('${id}').querySelector('.dday-val');
+  var dateStr='${c.date||''}', type='${c.type||'countdown'}';
+  function calc(){
+    var t=new Date(); t.setHours(0,0,0,0);
+    var tgt=new Date(dateStr+'T00:00:00'); tgt.setHours(0,0,0,0);
+    var diff=Math.round((tgt-t)/86400000);
+    if(type==='couple'){ return diff>0 ? 'D-'+diff : 'D+'+((-diff)+1); }
+    return diff===0 ? 'D-DAY' : (diff>0 ? 'D-'+diff : 'D+'+(-diff));
+  }
+  function tick(){ el.textContent=calc(); }
+  tick(); setInterval(tick,30000);
+})();</` + `script>`;
+}
+function copyCardHtml(c){
+  const html=generateStandaloneHtml(c);
+  const done=(ok)=>showToast(ok?'HTML 코드가 복사되었어요':'복사 실패, 콘솔을 확인해주세요');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(html).then(()=>done(true)).catch(()=>{ console.log(html); done(false); });
+  } else { console.log(html); done(false); }
+}
+function showToast(msg){
+  let t=document.querySelector('.toast');
+  if(!t){ t=document.createElement('div'); t.className='toast'; document.body.appendChild(t); }
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+function blankForm(){
+  editingId=null; pendingBgData=null;
+  document.getElementById('fTitle').value='';
+  document.getElementById('fDate').value='';
+  document.getElementById('fOpacity').value=25;
+  document.getElementById('opVal').textContent=25;
+  setType('countdown'); setOverlay('black'); setTextColor('white'); setFontSize('medium');
+}
+function openModal(card){
+  blankForm();
+  document.getElementById('modalTitle').textContent=card?'카드 수정':'카드 추가';
+  document.getElementById('delBtn').style.display=card?'block':'none';
+  if(card){
+    editingId=card.id;
+    document.getElementById('fTitle').value=card.title||'';
+    document.getElementById('fDate').value=card.date||'';
+    const op=card.ovOpacity!=null?card.ovOpacity:25;
+    document.getElementById('fOpacity').value=op;
+    document.getElementById('opVal').textContent=op;
+    setType(card.type||'countdown');
+    setOverlay(card.ovColor||'black');
+    setTextColor(card.textColor||'white');
+    setFontSize(card.fontSize||'medium');
+    pendingBgData=card.bgUrl?{url:card.bgUrl}:null;
+  }
+  document.getElementById('modal').style.display='flex';
+  updatePreview();
+}
+function closeModal(){ document.getElementById('modal').style.display='none'; }
+function setType(t){ _type=t; document.getElementById('typeCountdown').classList.toggle('on',t==='countdown'); document.getElementById('typeCouple').classList.toggle('on',t==='couple'); document.getElementById('dateLabel').textContent=t==='couple'?'시작일 (사귄 날)':'목표 날짜'; updatePreview(); }
+function setOverlay(c){ _ov=c; document.getElementById('ovBlack').classList.toggle('on',c==='black'); document.getElementById('ovWhite').classList.toggle('on',c==='white'); updatePreview(); }
+function setTextColor(c){ _tx=c; document.getElementById('txBlack').classList.toggle('on',c==='black'); document.getElementById('txWhite').classList.toggle('on',c==='white'); updatePreview(); }
+function setFontSize(s){ _fs=s; document.getElementById('fsSmall').classList.toggle('on',s==='small'); document.getElementById('fsMedium').classList.toggle('on',s==='medium'); document.getElementById('fsLarge').classList.toggle('on',s==='large'); updatePreview(); }
+
+function loadImageEl(file){
+  return new Promise((res,rej)=>{
+    const img=new Image(); const url=URL.createObjectURL(file);
+    img.onload=()=>{ res(img); URL.revokeObjectURL(url); };
+    img.onerror=rej; img.src=url;
+  });
+}
+async function compressImage(file){
+  const img=await loadImageEl(file);
+  const maxDim=1400, quality=0.8;
+  let {width,height}=img;
+  if(width>height){ if(width>maxDim){ height=Math.round(height*maxDim/width); width=maxDim; } }
+  else{ if(height>maxDim){ width=Math.round(width*maxDim/height); height=maxDim; } }
+  const canvas=document.createElement('canvas'); canvas.width=width; canvas.height=height;
+  canvas.getContext('2d').drawImage(img,0,0,width,height);
+  return canvas.toDataURL('image/jpeg',quality);
+}
+document.getElementById('fileInput').addEventListener('change', async (e)=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ const dataUrl=await compressImage(f); pendingBgData={url:dataUrl}; updatePreview(); }
+  catch(err){ console.error(err); alert('이미지 처리에 실패했어요.'); }
+});
+
+function currentFormCard(){
+  return {
+    title:document.getElementById('fTitle').value.trim(),
+    type:_type,
+    date:document.getElementById('fDate').value,
+    ovColor:_ov,
+    ovOpacity:Number(document.getElementById('fOpacity').value),
+    textColor:_tx,
+    fontSize:_fs,
+    bgUrl:pendingBgData?pendingBgData.url:null,
+  };
+}
+function updatePreview(){
+  const c=currentFormCard();
+  const el=buildCardEl(c,false);
+  const holder=document.getElementById('previewWrap');
+  holder.innerHTML=''; holder.appendChild(el);
+}
+
+async function saveCard(){
+  const form=currentFormCard();
+  if(!form.title || !form.date){ alert('제목과 날짜를 입력해주세요'); return; }
+  if(editingId){
+    const i=cards.findIndex(x=>x.id===editingId);
+    if(i>-1) cards[i]={...cards[i], ...form};
+  } else {
+    cards.push({...form, id:'id_'+Date.now(), createdAt:Date.now()});
+  }
+  try{ await saveCardsToDrive(); renderGrid(); closeModal(); }
+  catch(err){ console.error(err); alert('저장 실패: '+err.message); }
+}
+async function deleteCard(){
+  if(!editingId) return;
+  if(!confirm('이 카드를 삭제할까요?')) return;
+  cards=cards.filter(x=>x.id!==editingId);
+  try{ await saveCardsToDrive(); renderGrid(); closeModal(); }
+  catch(err){ console.error(err); alert('삭제 실패: '+err.message); }
+}
+</script>
+</body>
+</html>
