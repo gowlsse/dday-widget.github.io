@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D-DAY</title>
+<style>
+  html,body{ margin:0; padding:0; background:transparent; }
+  .card{ position:relative; width:100%; aspect-ratio:3/2; overflow:hidden; font-family:-apple-system,'Pretendard',sans-serif; }
+  .bg{ position:absolute; inset:0; background-size:cover; background-position:center; }
+  .bg img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .overlay{ position:absolute; inset:0; }
+  .content{ position:absolute; left:0; right:0; bottom:0; padding:16px 18px; }
+  .title{ opacity:.85; margin-bottom:2px; }
+  .dday{ font-weight:800; letter-spacing:-0.5px; }
+  .date{ opacity:.75; margin-top:2px; }
+  .empty{ display:flex; align-items:center; justify-content:center; height:100%; color:#888; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const FONT_SIZES={ small:{title:11,dday:22,date:10}, medium:{title:13,dday:30,date:12}, large:{title:15,dday:40,date:14} };
+function calcDday(dateStr,type){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const target=new Date(dateStr+'T00:00:00'); target.setHours(0,0,0,0);
+  const diff=Math.round((target-today)/86400000);
+  if(type==='couple'){ if(diff>0) return 'D-'+diff; return 'D+'+((-diff)+1); }
+  if(diff===0) return 'D-DAY';
+  return diff>0 ? 'D-'+diff : 'D+'+(-diff);
+}
+function decodeParam(){
+  const p=new URLSearchParams(location.search).get('d');
+  if(!p) return null;
+  try{ return JSON.parse(decodeURIComponent(escape(atob(p)))); }catch(e){ return null; }
+}
+const c=decodeParam();
+const root=document.getElementById('root');
+if(!c || !c.date){
+  root.innerHTML='<div class="empty">잘못된 링크예요</div>';
+} else {
+  const fs=FONT_SIZES[c.fontSize||'medium'];
+  const overlayColor=c.ovColor==='white'?'255,255,255':'0,0,0';
+  const overlayOpacity=(c.ovOpacity!=null?c.ovOpacity:25)/100;
+  const textColor=c.textColor==='white'?'#fff':'#111';
+  root.innerHTML=
+    '<div class="card">' +
+      (c.bgUrl ? '<div class="bg"><img src="'+c.bgUrl+'"></div>' : '<div class="bg" style="background:linear-gradient(135deg,#555,#222)"></div>') +
+      '<div class="overlay" style="background:rgba('+overlayColor+','+overlayOpacity+')"></div>' +
+      '<div class="content" style="color:'+textColor+'">' +
+        '<div class="title" style="font-size:'+fs.title+'px">'+(c.title||'')+'</div>' +
+        '<div class="dday" id="ddayEl" style="font-size:'+fs.dday+'px">-</div>' +
+        '<div class="date" style="font-size:'+fs.date+'px">'+(c.date||'').replace(/-/g,'.')+'</div>' +
+      '</div>' +
+    '</div>';
+  function tick(){ document.getElementById('ddayEl').textContent=calcDday(c.date,c.type); }
+  tick(); setInterval(tick, 30000);
+}
+</script>
+</body>
+</html>
