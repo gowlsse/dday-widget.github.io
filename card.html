@@ -30,9 +30,10 @@ function calcDday(dateStr,type){
   return diff>0 ? 'D-'+diff : 'D+'+(-diff);
 }
 function decodeParam(){
-  const p=new URLSearchParams(location.search).get('d');
+  const hash=location.hash.startsWith('#')?location.hash.slice(1):location.hash;
+  const p=new URLSearchParams(hash).get('d');
   if(!p) return null;
-  try{ return JSON.parse(decodeURIComponent(escape(atob(p)))); }catch(e){ return null; }
+  try{ return JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(p))))); }catch(e){ return null; }
 }
 const c=decodeParam();
 const root=document.getElementById('root');

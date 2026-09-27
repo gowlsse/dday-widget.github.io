@@ -294,7 +294,7 @@ async function getEmbedUrl(c){
   const payload={ title:c.title, type:c.type, date:c.date, ovColor:c.ovColor, ovOpacity:c.ovOpacity, textColor:c.textColor, fontSize:c.fontSize, bgUrl };
   const b64=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   const url=new URL('card.html', location.href);
-  url.searchParams.set('d', b64);
+  url.hash='d='+encodeURIComponent(b64);
   return url.toString();
 }
 async function copyEmbedLink(c){
